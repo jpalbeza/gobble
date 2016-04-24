@@ -4,21 +4,22 @@
 (def frame-size 3)
 (def empty-score "")
 (def num-of-frames 10)
-(def max-frame-size 4)
 
 
 (defn new-scorecard
   "Create new empty score card."
-  [] {:frames [], :per-frame-score [], :running-total [], :final-total "" })
+  [] {:frames [] :per-frame-scores [] :running-total [] :final-total empty-score })
 
 
-(defn to-ball-scores "Map frame scores to the raw score of each ball."
+(defn to-rolls "Map frame scores to the raw score of each ball."
   [balls]
-  (->> balls
-       (map #(let [current (nth balls %)]
-              (cond (= \X current) all-pins
-                    (= \/ current) (- all-pins (nth balls (dec %)))
-                    :else current)))))
+  (let [rolls (->> (remove #(= empty-score %) balls)
+                   (replace {\X all-pins}))]
+    (->> (range (count rolls))
+         (map #(let [current (nth rolls %)]
+                (if (= \/ current)
+                  (- all-pins (nth rolls (dec %)))
+                  current))))))
 
 
 (defn resolve-frame-score
@@ -26,25 +27,18 @@
   [[b1 b2 & rest-of-frames]]
   (if (and (number? b1) (number? b2))
     (+ b1 b2)                                                                               ;open frame
-    (let [next-balls (to-ball-scores rest-of-frames)
-          num-of-next-balls (count next-balls)]
-      (cond (and (= b1 \X) (>= num-of-next-balls 2)) (apply + all-pins (take 2 next-balls)) ;strike
-            (and (= b2 \/) (>= num-of-next-balls 1)) (+ all-pins (first next-balls))        ;spare
-            :else ""))))                                                                    ;cannot be resolved yet, need more balls
+    (let [next-rolls (to-rolls rest-of-frames)
+          num-of-next-rolls (count next-rolls)]
+      (cond (and (= b1 \X) (>= num-of-next-rolls 2)) (apply + all-pins (take 2 next-rolls)) ;strike
+            (and (= b2 \/) (>= num-of-next-rolls 1)) (+ all-pins (first next-rolls))        ;spare
+            :else empty-score))))                                                           ;cannot be resolved yet, need more balls
 
 
-(defn resolve-card-score
-  "Resolve blank scores as much as possible."
-  [{:keys [frames per-frame-score running-total final-total] :as card}]
-  (->> (range (count per-frame-score) (count frames))
-       (map #((comp resolve-frame-score flatten drop) % frames))
-       (filter number?)
-       (reduce (fn [new-card score] (update-in new-card [:per-frame-score] conj score)) card)))
 
 (defn is-valid? [card & balls] true)                        ;TO DO
 
 
-(defn on-last-frame?
+(defn on-last-frame?                                        ;TO DO
   "Evaluates if we have all the frames already."
   [card] (= (quot (count card) frame-size) num-of-frames))
 
@@ -52,11 +46,15 @@
 (defn score-frame
   "Calculate score for frame. When the operation is valid, returns an updated scorecard.
    Returns nil otherwise. "
-  ([card & balls] (let [new-card (resolve-card-score (update-in card [:frames] #(conj %1 %2) balls))]
-                        (if (on-last-frame? new-card)
-                          (->> (drop-last new-card)         ;take out the fill-ball entry
-                               (partition 1 frame-size)
-                               (reduce +)
-                               (into new-card))
-                          new-card)))
-  )
+  [{:keys [frames per-frame-scores running-total final-total] :as card}
+   & balls]
+  (let [new-frames (conj frames balls)
+        additional-frame-scores (->> (range (count per-frame-scores) (count new-frames))
+                                     (map #((comp resolve-frame-score flatten drop) % new-frames))
+                                     (filter number?))]
+    (into card {:frames            new-frames
+                :per-frame-scores  (into per-frame-scores additional-frame-scores)
+                :running-total     (reduce #(conj %1 ((fnil + 0) (last %1) %2) )
+                                           running-total
+                                           additional-frame-scores)
+                :final-total       final-total })))
