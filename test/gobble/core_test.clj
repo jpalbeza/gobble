@@ -6,11 +6,29 @@
   (testing "New scorecard"
     (is (= (new-scorecard)  {:frames [] :per-frame-scores [] :running-total [] :final-total "" }))))
 
-(def empty-card {:frames [], :per-frame-scores [], :running-total [], :final-total "" })
+(def empty-card {:frames [] :per-frame-scores [] :running-total [] :final-total "" })
 (def one-frame-card (update-in empty-card [:frames] #(conj %1 %2) '(2 3)))
 (def nine-frame-card (update-in empty-card [:frames] #(into %1 %2) (repeat 9 '(2 3))))
 
-; TODO add tests for invalid frames
+(def score-frames (partial reduce #(apply score-frame %1 %2) (new-scorecard)))
+
+(deftest test-invalid-frames
+  (testing "Verify that appropriate exception is thrown for invalid input"
+    (is (thrown-with-msg? RuntimeException
+                          #"Cannot add frame to a full score card."
+                          (score-frames (repeat 11 '(1 2)))))
+    (is (thrown-with-msg? RuntimeException
+                          #"Cannot add frame to a full score card."
+                          (score-frames (concat (repeat 10 '(1 2)) '((\X \X \X))))))
+    (is (thrown-with-msg? RuntimeException
+                          #"Invalid number of balls."
+                          (score-frames '(()))))
+    (is (thrown-with-msg? RuntimeException
+                          #"Invalid number of balls."
+                          (score-frames '((1 2 3)))))
+    (is (thrown-with-msg? RuntimeException
+                          #"Invalid number of balls."
+                          (score-frames (concat (repeat 9 '(1 2)) '((\X \X \X \X))))))))
 
 (deftest test-open-frame-on-empty
   (testing "open frame score on empty card"
