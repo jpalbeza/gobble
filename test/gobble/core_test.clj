@@ -8,27 +8,31 @@
 
 (def empty-card {:frames [] :per-frame-scores [] :running-total [] :final-total "" })
 (def one-frame-card (update-in empty-card [:frames] #(conj %1 %2) '(2 3)))
-(def nine-frame-card (update-in empty-card [:frames] #(into %1 %2) (repeat 9 '(2 3))))
 
 (def score-frames (partial reduce #(apply score-frame %1 %2) (new-scorecard)))
 
+(def caf #"Cannot add frame")
+(def inb #"Invalid number of balls")
+(def ibs #"Invalid ball score")
+(def tsi #"Total score is more")
+
 (deftest test-invalid-frames
   (testing "Verify that appropriate exception is thrown for invalid input"
-    (is (thrown-with-msg? RuntimeException
-                          #"Cannot add frame to a full score card."
-                          (score-frames (repeat 11 '(1 2)))))
-    (is (thrown-with-msg? RuntimeException
-                          #"Cannot add frame to a full score card."
-                          (score-frames (concat (repeat 10 '(1 2)) '((\X \X \X))))))
-    (is (thrown-with-msg? RuntimeException
-                          #"Invalid number of balls."
-                          (score-frames '(()))))
-    (is (thrown-with-msg? RuntimeException
-                          #"Invalid number of balls."
-                          (score-frames '((1 2 3)))))
-    (is (thrown-with-msg? RuntimeException
-                          #"Invalid number of balls."
-                          (score-frames (concat (repeat 9 '(1 2)) '((\X \X \X \X))))))))
+    (is (thrown-with-msg? RuntimeException caf (score-frames (repeat 11 '(1 2)))))
+    (is (thrown-with-msg? RuntimeException caf (score-frames (concat (repeat 10 '(1 2)) '((\X \X \X))))))
+
+    (is (thrown-with-msg? RuntimeException inb (score-frames '(()))))
+    (is (thrown-with-msg? RuntimeException inb (score-frames '((1 2 3)))))
+    (is (thrown-with-msg? RuntimeException inb (score-frames (concat (repeat 9 '(1 2)) '((\X \X \X \X))))))
+
+    (is (thrown-with-msg? RuntimeException ibs (score-frames '((\/)))))
+    (is (thrown-with-msg? RuntimeException ibs (score-frames '((5)))))
+    (is (thrown-with-msg? RuntimeException ibs (score-frames '((5 \X)))))
+    (is (thrown-with-msg? RuntimeException ibs (score-frames '((\X \X)))))
+    (is (thrown-with-msg? RuntimeException ibs (score-frames '((\/ 5)))))
+    (is (thrown-with-msg? RuntimeException ibs (score-frames '((10 \/)))))
+
+    (is (thrown-with-msg? RuntimeException tsi (score-frames '((5 5)))))))
 
 (deftest test-open-frame-on-empty
   (testing "open frame score on empty card"
@@ -36,7 +40,8 @@
             :per-frame-scores [9]
             :running-total [9]
             :final-total "" }
-           (score-frame empty-card 4 5)))))
+           (score-frame empty-card 4 5))
+        "something happened")))
 
 (deftest test-almost-full-scorecard
   (testing "open frame score on a card with 1 open frame"
@@ -83,8 +88,4 @@
   (testing "test transforming frames to rolls"
     (is (= [all-pins] (to-rolls '(\X ))))
     (is (= [5 5] (to-rolls '(5 \/ ))))))
-
-;(deftest test-last-open-frame
-;  (testing "last open frame"
-;    (is (= (into nine-frame-card [3 1 2 30]) (score-frame nine-frame-card 1 2)))))
 
