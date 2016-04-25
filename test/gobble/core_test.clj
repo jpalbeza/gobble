@@ -26,10 +26,43 @@
             :final-total "" }
            (score-frame one-frame-card 4 5)))))
 
+(deftest test-first-spare
+  (testing "open frame score on a card with 1 open frame"
+    (is (= {:frames ['(4 \/)]
+            :per-frame-scores []
+            :running-total []
+            :final-total "" }
+           (score-frame empty-card 4 \/)))))
+
+(deftest test-first-spare-followed-by-open
+  (testing "open frame score on a card with 1 open frame"
+    (is (= {:frames ['(4 \/) '(4 5)]
+            :per-frame-scores [14 9]
+            :running-total [14 23]
+            :final-total "" }
+            (reduce #(apply score-frame %1 %2) empty-card ['(4 \/) '(4 5)]) ))))
+
+
+(deftest test-opening-turkey
+  (testing "three strikes in the beginning"
+    (is (= {:frames (into [] (repeat 3 '(\X "")))
+            :per-frame-scores [30]
+            :running-total [30]
+            :final-total "" }
+           (reduce #(apply score-frame %1 %2) empty-card (into [] (repeat 3 '(\X ""))))))))
+
+(deftest test-perfect-game
+  (testing "perfect game"
+    (is (= {:frames (into [] (concat (repeat 9 '(\X "")) '((\X \X \X))))
+            :per-frame-scores (into [] (repeat 10 30))
+            :running-total (into [] (take 10 (iterate #(+ 30 %) 30)))
+            :final-total "" }
+           (reduce #(apply score-frame %1 %2) empty-card (concat (repeat 9 '(\X "")) '((\X \X \X))))))))
+
 (deftest test-to-rolls
   (testing "test transforming frames to rolls"
-    (is (= [all-pins] (to-rolls '("" \X ))))
-    (is (= [5 5] (to-rolls '("" 5 \/ ))))))
+    (is (= [all-pins] (to-rolls '(\X ))))
+    (is (= [5 5] (to-rolls '(5 \/ ))))))
 
 ;(deftest test-last-open-frame
 ;  (testing "last open frame"

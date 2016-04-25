@@ -13,8 +13,7 @@
 
 (defn to-rolls "Map frame scores to the raw score of each ball."
   [balls]
-  (let [rolls (->> (remove #(= empty-score %) balls)
-                   (replace {\X all-pins}))]
+  (let [rolls (replace {\X all-pins} balls)]
     (->> (range (count rolls))
          (map #(let [current (nth rolls %)]
                 (if (= \/ current)
@@ -24,14 +23,14 @@
 
 (defn resolve-frame-score
   "Resolve a frames score"
-  [[b1 b2 & rest-of-frames]]
-  (if (and (number? b1) (number? b2))
-    (+ b1 b2)                                                                               ;open frame
-    (let [next-rolls (to-rolls rest-of-frames)
-          num-of-next-rolls (count next-rolls)]
-      (cond (and (= b1 \X) (>= num-of-next-rolls 2)) (apply + all-pins (take 2 next-rolls)) ;strike
-            (and (= b2 \/) (>= num-of-next-rolls 1)) (+ all-pins (first next-rolls))        ;spare
-            :else empty-score))))                                                           ;cannot be resolved yet, need more balls
+  [[b1 & rest-of-frames]]
+  (let [rolls-after-b1 (remove #(= empty-score %) rest-of-frames) ;eliminate empty-scores as they are not considered as rolls
+        b2 (first rolls-after-b1)
+        rolls-after-b2 (rest rolls-after-b1)]
+    (cond (and (= b1 \X) (>= (count rolls-after-b1) 2)) (apply + all-pins (take 2 (to-rolls rolls-after-b1))) ;strike
+          (and (= b2 \/) (>= (count rolls-after-b2) 1)) (+ all-pins (first (to-rolls rolls-after-b2)))        ;spare
+          (and (number? b1) (number? b2)) (+ b1 b2)                                                           ;open frame
+          :else empty-score)))                              ;cannot be resolved yet, need more rolls
 
 
 
@@ -51,10 +50,12 @@
   (let [new-frames (conj frames balls)
         additional-frame-scores (->> (range (count per-frame-scores) (count new-frames))
                                      (map #((comp resolve-frame-score flatten drop) % new-frames))
-                                     (filter number?))]
+                                     (filter number?)
+                                     )]
     (into card {:frames            new-frames
                 :per-frame-scores  (into per-frame-scores additional-frame-scores)
                 :running-total     (reduce #(conj %1 ((fnil + 0) (last %1) %2) )
                                            running-total
                                            additional-frame-scores)
-                :final-total       final-total })))
+                :final-total       final-total
+                })))
