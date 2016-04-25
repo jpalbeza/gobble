@@ -10,6 +10,8 @@
 (def one-frame-card (update-in empty-card [:frames] #(conj %1 %2) '(2 3)))
 (def nine-frame-card (update-in empty-card [:frames] #(into %1 %2) (repeat 9 '(2 3))))
 
+; TODO add tests for invalid frames
+
 (deftest test-open-frame-on-empty
   (testing "open frame score on empty card"
     (is (= {:frames ['(4 5)]
@@ -56,7 +58,7 @@
     (is (= {:frames (into [] (concat (repeat 9 '(\X "")) '((\X \X \X))))
             :per-frame-scores (into [] (repeat 10 30))
             :running-total (into [] (take 10 (iterate #(+ 30 %) 30)))
-            :final-total "" }
+            :final-total 300 }
            (reduce #(apply score-frame %1 %2) empty-card (concat (repeat 9 '(\X "")) '((\X \X \X))))))))
 
 (deftest test-to-rolls

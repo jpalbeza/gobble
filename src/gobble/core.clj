@@ -6,8 +6,7 @@
 (def num-of-frames 10)
 
 
-(defn new-scorecard
-  "Create new empty score card."
+(defn new-scorecard "Create new empty score card."
   [] {:frames [] :per-frame-scores [] :running-total [] :final-total empty-score })
 
 
@@ -21,8 +20,7 @@
                   current))))))
 
 
-(defn resolve-frame-score
-  "Resolve a frames score"
+(defn resolve-frame-score "Resolve a frames score"
   [[b1 & rest-of-frames]]
   (let [rolls-after-b1 (remove #(= empty-score %) rest-of-frames) ;eliminate empty-scores as they are not considered as rolls
         b2 (first rolls-after-b1)
@@ -34,12 +32,16 @@
 
 
 
-(defn is-valid? [card & balls] true)                        ;TO DO
-
-
-(defn on-last-frame?                                        ;TO DO
-  "Evaluates if we have all the frames already."
-  [card] (= (quot (count card) frame-size) num-of-frames))
+(defn is-valid?
+  ([frame-pos b1 b2] (cond (>= frame-pos num-of-frames) false                               ;cannot add more frames to a full set
+                           (= num-of-frames (inc frame-pos)) (is-valid? frame-pos b1 b2 "") ;validate as last frame
+                           :else (or (and (number? b1) (or (number? b2) (= b2 \/))) ;open frame or spare
+                                     (and (= b1 \X) (= b2 "")))))                   ;strike
+  ([frame-pos b1 b2 b3] (cond (>= frame-pos num-of-frames) false                   ;cannot add more frames to a full set
+                              ((complement =) num-of-frames (inc frame-pos)) false ;3 elements are only allowed in last frame
+                              :else (or (and (number? b1) (number? b2) (= empty-score b3))             ;open frame on last frame
+                                        (and (number? b1) (and (= b2 \/) (or (number? b3) (= b3 \X)))) ;spare on last frame, completed by either a number or a strike
+                                        (= (repeat 3 \X) (list b1 b2 b3))))))                          ;turkey on last frame
 
 
 (defn score-frame
@@ -50,12 +52,15 @@
   (let [new-frames (conj frames balls)
         additional-frame-scores (->> (range (count per-frame-scores) (count new-frames))
                                      (map #((comp resolve-frame-score flatten drop) % new-frames))
-                                     (filter number?)
-                                     )]
-    (into card {:frames            new-frames
-                :per-frame-scores  (into per-frame-scores additional-frame-scores)
-                :running-total     (reduce #(conj %1 ((fnil + 0) (last %1) %2) )
-                                           running-total
-                                           additional-frame-scores)
-                :final-total       final-total
-                })))
+                                     (filter number?))
+        new-running-total (reduce #(conj %1 ((fnil + 0) (last %1) %2) )
+                                  running-total
+                                  additional-frame-scores)]
+    (if (apply is-valid? (count frames) balls)
+      (into card {:frames            new-frames
+                  :per-frame-scores  (into per-frame-scores additional-frame-scores)
+                  :running-total     new-running-total
+                  :final-total       (if (= num-of-frames (count new-frames))
+                                       (last new-running-total)
+                                       final-total)})
+      nil)))
