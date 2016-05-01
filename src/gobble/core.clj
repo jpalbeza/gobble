@@ -1,4 +1,5 @@
-(ns gobble.core)
+(ns gobble.core
+  (:require [clojure.tools.logging :as log]))
 
 (def all-pins 10)
 (def empty-score "")
@@ -90,20 +91,23 @@
   Throws an appropriate exception otherwise."
   [{:keys [frames per-frame-scores running-total final-total] :as card}
    & balls]
+  (log/info "score-frame in: " card balls)
+
+  ;only validate the balls. Assume scorecard is only manipulated by new-scorecard or score-frame functions here
+  (apply is-valid (count frames) balls)
+
   (let [new-frames (conj frames balls)
         additional-frame-scores (->> (range (count per-frame-scores) (count new-frames))
                                      (map #((comp resolve-frame-score flatten drop) % new-frames))
                                      (filter number?))
         new-running-total (reduce #(conj %1 ((fnil + 0) (last %1) %2) )
                                   running-total
-                                  additional-frame-scores)]
-
-    ;only validate the balls. Assume scorecard is only manipulated by new-scorecard or score-frame functions here
-    (apply is-valid (count frames) balls)
-
-    (into card {:frames            new-frames
-                :per-frame-scores  (into per-frame-scores additional-frame-scores)
-                :running-total     new-running-total
-                :final-total       (if (= num-of-frames (count new-frames))
-                                     (last new-running-total)
-                                     final-total)})))
+                                  additional-frame-scores)
+        updated-card (into card {:frames            new-frames
+                                 :per-frame-scores  (into per-frame-scores additional-frame-scores)
+                                 :running-total     new-running-total
+                                 :final-total       (if (= num-of-frames (count new-frames))
+                                                      (last new-running-total)
+                                                      final-total)})]
+    (log/info "score-frame out: " updated-card)
+    updated-card))
